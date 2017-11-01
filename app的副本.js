@@ -6,9 +6,12 @@ const express = require('express');
 const crypto = require('crypto');
 const bodyParser = require('body-parser');
 const request = require('request');
+const pg = require('pg');
 const app = express();
 const uuid = require('uuid');
+const userData = require('./user');
 
+pg.defaults.ssl = true;
 
 // Messenger API parameters
 if (!config.FB_PAGE_TOKEN) {
@@ -26,7 +29,9 @@ if (!config.FB_APP_SECRET) {
 if (!config.SERVER_URL) { //used for ink to static files
 	throw new Error('missing SERVER_URL');
 }
-
+if(!config.PG_CONFIG){
+	throw new Error('missing PG_CONFIG');
+}
 
 
 app.set('port', (process.env.PORT || 5000))
@@ -55,6 +60,7 @@ const apiAiService = apiai(config.API_AI_CLIENT_ACCESS_TOKEN, {
 	requestSource: "fb"
 });
 const sessionIds = new Map();
+const usersMap = new Map();
 
 // Index route
 app.get('/', function (req, res) {
@@ -119,7 +125,17 @@ app.post('/webhook/', function (req, res) {
 	}
 });
 
+function setSessionAndUser(senderID) {
+	if (!sessionIds.has(senderID)) {
+		sessionIds.set(senderID, uuid.v1());
+	}
+	if (!usersMap.has(senderID)) {
+		userData(function(user){
+			usersMap.set(senderID, user);
+		}, senderID);
+	}
 
+}
 
 
 
@@ -130,9 +146,7 @@ function receivedMessage(event) {
 	var timeOfMessage = event.timestamp;
 	var message = event.message;
 
-	if (!sessionIds.has(senderID)) {
-		sessionIds.set(senderID, uuid.v1());
-	}
+	setSessionAndUser(senderID);
 	//console.log("Received message for user %d and page %d at %d with message:", senderID, recipientID, timeOfMessage);
 	//console.log(JSON.stringify(message));
 
@@ -642,32 +656,11 @@ function sendAccountLinking(recipientId) {
 
 
 function greetUserText(userId) {
-	//first read user firstname
-	request({
-		uri: 'https://graph.facebook.com/v2.7/' + userId,
-		qs: {
-			access_token: config.FB_PAGE_TOKEN
-		}
+	let user = usersMap.get(userId);
+	sendTextMessage(userId, "Welcome " + user.first_name + '! ' +
+		'I can help you manage your blood sugar ' +
+		'Start by saying hi!');
 
-	}, function (error, response, body) {
-		if (!error && response.statusCode == 200) {
-
-			var user = JSON.parse(body);
-
-			if (user.first_name) {
-				console.log("FB user: %s %s, %s",
-					user.first_name, user.last_name, user.gender);
-
-				sendTextMessage(userId, "Welcome " + user.first_name + '!');
-			} else {
-				console.log("Cannot get data for fb user with id",
-					userId);
-			}
-		} else {
-			console.error(response.error);
-		}
-
-	});
 }
 
 /*
@@ -716,11 +709,15 @@ function receivedPostback(event) {
 	var recipientID = event.recipient.id;
 	var timeOfPostback = event.timestamp;
 
+	setSessionAndUser(senderID);
 	// The 'payload' param is a developer-defined field which is set in a postback 
 	// button for Structured Messages. 
 	var payload = event.postback.payload;
 
 	switch (payload) {
+		case 'GET_STARTED':
+		greetUserText(senderID);
+		break;
 		default:
 			//unindentified payload
 			sendTextMessage(senderID, "I'm not sure what you want. Can you be more specific?");
