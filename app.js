@@ -9,7 +9,7 @@ const request = require('request');
 const pg = require('pg');
 const app = express();
 const uuid = require('uuid');
-const userData = require('./user');
+const userService = require('./user');
 const colors = require('./colors');
 
 pg.defaults.ssl = true;
@@ -130,12 +130,11 @@ function setSessionAndUser(senderID) {
 	if (!sessionIds.has(senderID)) {
 		sessionIds.set(senderID, uuid.v1());
 	}
-	if (!usersMap.has(senderID)) {
-		userData(function(user){
+	//if (!usersMap.has(senderID)) {
+		userService.addUser(function(user){
 			usersMap.set(senderID, user);
 		}, senderID);
-	}
-
+	//}
 }
 
 
@@ -186,9 +185,35 @@ function handleMessageAttachments(messageAttachments, senderID){
 
 function handleQuickReply(senderID, quickReply, messageId) {
 	var quickReplyPayload = quickReply.payload;
+	switch (quickReplyPayload) {
+		case 'NEWS_PER_WEEK':
+			userService.newsletterSettings(function(updated) {
+				if (updated) {
+					sendTextMessage(senderID, "Thank you for subscribing!" +
+						"If you want to usubscribe just write 'unsubscribe from newsletter'");
+				} else {
+					sendTextMessage(senderID, "Newsletter is not available at this moment." +
+						"Try again later!");
+				}
+			}, 1, senderID);
+			break;
+		case 'NEWS_PER_DAY':
+			userService.newsletterSettings(function(updated) {
+				if (updated) {
+					sendTextMessage(senderID, "Thank you for subscribing!" +
+						"If you want to usubscribe just write 'unsubscribe from newsletter'");
+				} else {
+					sendTextMessage(senderID, "Newsletter is not available at this moment." +
+						"Try again later!");
+				}
+			}, 2, senderID);
+			break;
+		default:
+			sendToApiAi(sessionIds, handleApiAiResponse, senderID, quickReplyPayload);
+	}
 	console.log("Quick reply for message %s with payload %s", messageId, quickReplyPayload);
 	//send payload to api.ai
-	sendToApiAi(senderID, quickReplyPayload);
+
 }
 
 //https://developers.facebook.com/docs/messenger-platform/webhook-reference/message-echo
@@ -202,10 +227,17 @@ function handleApiAiAction(sender, action, responseText, contexts, parameters) {
 		case "record-sugar-content":
 		colors.readAllColors(function (allColors) {
                 let allColorsString = allColors.join(', ');
-                let reply = `Normal blood sugar ranges in 90-110. What is your blood sugar?`;
+                let reply = `Normal blood sugar ranges in 80-130. What is your blood sugar?`;
 				sendTextMessage(sender, reply);
             });
 		break;
+
+		case "record-blood-sugar.stats":
+            colors.updateUserColor(parameters['color'], sender);
+            let reply = `Your blood sugar is recorded. Thank you.`;
+			sendTextMessage(sender, reply);
+		break;
+
 		default:
 			//unhandled action, just send back the text
 			sendTextMessage(sender, responseText);
@@ -703,7 +735,25 @@ function callSendAPI(messageData) {
 	});
 }
 
+function sendFunNewsSubscribe(userId) {
+	let responceText = "I can send you latest self-management tips, " +
+		" How often would you like to receive them?";
 
+	let replies = [
+		{
+			"content_type": "text",
+			"title": "Once per week",
+			"payload": "NEWS_PER_WEEK"
+		},
+		{
+			"content_type": "text",
+			"title": "Once per day",
+			"payload": "NEWS_PER_DAY"
+		}
+	];
+
+	sendQuickReply(userId, responceText, replies);
+}
 
 /*
  * Postback Event
@@ -726,6 +776,11 @@ function receivedPostback(event) {
 		case 'GET_STARTED':
 		greetUserText(senderID);
 		break;
+
+		case 'FUN_NEWS':
+			sendFunNewsSubscribe(senderID);
+			break;
+
 		default:
 			//unindentified payload
 			sendTextMessage(senderID, "I'm not sure what you want. Can you be more specific?");

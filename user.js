@@ -4,7 +4,9 @@ const config = require('./config');
 const pg = require('pg');
 pg.defaults.ssl = true;
 
-module.exports = function(callback, userId) {
+module.exports = {
+
+    addUser: function(callback, userId) {
         request({
             uri: 'https://graph.facebook.com/v2.7/' + userId,
             qs: {
@@ -63,4 +65,54 @@ module.exports = function(callback, userId) {
             }
 
         });
+    },
+
+    readAllUsers: function(callback, newstype) {
+        var pool = new pg.Pool(config.PG_CONFIG);
+        pool.connect(function(err, client, done) {
+            if (err) {
+                return console.error('Error acquiring client', err.stack);
+            }
+            client
+                .query(
+                    'SELECT fb_id, first_name, last_name FROM users WHERE newsletter=$1',
+                    [newstype],
+                    function(err, result) {
+                        if (err) {
+                            console.log(err);
+                            callback([]);
+                        } else {
+                            console.log('rows');
+                            console.log(result.rows);
+                            callback(result.rows);
+                        };
+                    });
+            done();
+        });
+        pool.end();
+    },
+
+    newsletterSettings: function(callback, setting, userId) {
+        var pool = new pg.Pool(config.PG_CONFIG);
+        pool.connect(function(err, client, done) {
+            if (err) {
+                return console.error('Error acquiring client', err.stack);
+            }
+            client
+                .query(
+                    'UPDATE users SET newsletter=$1 WHERE fb_id=$2',
+                    [setting, userId],
+                    function(err, result) {
+                        if (err) {
+                            console.log(err);
+                            callback(false);
+                        } else {
+                            callback(true);
+                        };
+                    });
+            done();
+        });
+        pool.end();
     }
+
+}
