@@ -6,13 +6,14 @@ const express = require('express');
 const crypto = require('crypto');
 const bodyParser = require('body-parser');
 const request = require('request');
-const pg = require('pg');
 const app = express();
 const uuid = require('uuid');
 const userService = require('./user');
 const colors = require('./colors');
+const passport = require('passport');
+const FacebookStrategy = require('passport-facebook').Strategy;
+const session = require('express-session');
 
-pg.defaults.ssl = true;
 
 // Messenger API parameters
 if (!config.FB_PAGE_TOKEN) {
@@ -53,7 +54,46 @@ app.use(bodyParser.urlencoded({
 // Process application/json
 app.use(bodyParser.json())
 
+var pg = require('pg');
+pg.defaults.ssl = true;
 
+// app.use(session(
+// 	{
+// 		secret: 'keyboard cat',
+// 		resave: true,
+// 		saveUninitilized: true
+// 	}
+// ));
+
+// app.use(passport.initialize());
+// app.use(passport.session());
+
+// passport.serializeUser(function(profile, cb) {
+//     cb(null, profile);
+// });
+
+// passport.deserializeUser(function(profile, cb) {
+//     cb(null, profile);
+// });
+
+// app.get('/auth/facebook', passport.authenticate('facebook',{scope:'public_profile'}));
+
+
+// app.get('/auth/facebook/callback',
+//     passport.authenticate('facebook', { successRedirect : '/broadcast', failureRedirect: '/' }));
+    
+
+// passport.use(new FacebookStrategy({
+//         clientID: config.FB_APP_ID,
+//         clientSecret: config.FB_APP_SECRET,
+//         callbackURL: config.SERVER_URL + "auth/facebook/callback"
+//     },
+//     function(accessToken, refreshToken, profile, cb) {
+// 		process.nextTick(function() {
+// 			return cb(null, profile);
+// 		});
+//     }
+// ));
 
 
 const apiAiService = apiai(config.API_AI_CLIENT_ACCESS_TOKEN, {
@@ -224,6 +264,17 @@ function handleEcho(messageId, appId, metadata) {
 
 function handleApiAiAction(sender, action, responseText, contexts, parameters) {
 	switch (action) {
+		case "unsubscribe":
+            userService.newsletterSettings(function(updated) {
+                if (updated) {
+                    sendTextMessage(sender, "You're unsubscribed. You can always subscribe back!");
+                } else {
+                    sendTextMessage(sender, "Tips are not available at this moment." +
+                        "Try again later!");
+                }
+            }, 0, sender);
+			break;
+
 		case "record-sugar-content":
 		colors.readAllColors(function (allColors) {
                 let allColorsString = allColors.join(', ');

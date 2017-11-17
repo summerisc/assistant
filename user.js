@@ -51,7 +51,7 @@ module.exports = {
                                     }
                                 }
                             });
-                        done();
+                        
 
                         callback(user);
                     });
@@ -87,7 +87,7 @@ module.exports = {
                             callback(result.rows);
                         };
                     });
-            done();
+            
         });
         pool.end();
     },
@@ -110,7 +110,7 @@ module.exports = {
                             callback(true);
                         };
                     });
-            done();
+            
         });
         pool.end();
     }
