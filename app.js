@@ -6,6 +6,7 @@ const express = require('express');
 const crypto = require('crypto');
 const bodyParser = require('body-parser');
 const request = require('request');
+const pg = require('pg');
 const app = express();
 const uuid = require('uuid');
 const userService = require('./user');
@@ -14,6 +15,7 @@ const passport = require('passport');
 const FacebookStrategy = require('passport-facebook').Strategy;
 const session = require('express-session');
 
+pg.defaults.ssl = true;
 
 // Messenger API parameters
 if (!config.FB_PAGE_TOKEN) {
@@ -54,16 +56,15 @@ app.use(bodyParser.urlencoded({
 // Process application/json
 app.use(bodyParser.json())
 
-var pg = require('pg');
-pg.defaults.ssl = true;
 
-// app.use(session(
-// 	{
-// 		secret: 'keyboard cat',
-// 		resave: true,
-// 		saveUninitilized: true
-// 	}
-// ));
+//login apps
+app.use(session(
+	{
+		secret: 'keyboard cat',
+		resave: true,
+		saveUninitilized: true
+	}
+));
 
 // app.use(passport.initialize());
 // app.use(passport.session());
@@ -75,6 +76,8 @@ pg.defaults.ssl = true;
 // passport.deserializeUser(function(profile, cb) {
 //     cb(null, profile);
 // });
+
+app.set('view engine', 'ejs');
 
 // app.get('/auth/facebook', passport.authenticate('facebook',{scope:'public_profile'}));
 
@@ -105,8 +108,78 @@ const usersMap = new Map();
 
 // Index route
 app.get('/', function (req, res) {
-	res.send('Hello world, I am a chat bot')
+	//res.send('Hello world, I am a chat bot')
+	res.render('broadcast');
 })
+
+// app.get('/no-access', function (req, res) {
+//     res.render('no-access');
+// });
+
+app.get('/broadcast', function (req, res) { //ensureAuthenticated, 
+    res.render('broadcast', {user: req.user});
+});
+
+
+app.post('/broadcast', function (req, res) {
+	let message = req.body.message;
+	let newstype = parseInt(req.body.newstype, 10);
+	req.session.newstype = newstype;
+	req.session.message = message;
+	userService.readAllUsers(function(users) {
+		req.session.users = users;
+		res.render('broadcast-confirm', {user: req.user, message: message, users: users, numUsers: users.length, newstype: newstype})
+	}, newstype);
+
+});
+
+app.get('/broadcast-send', function (req, res) {
+	let message = req.session.message;
+	let allUsers = req.session.users;
+
+	let sender;
+	for (let i=0; i < allUsers.length; i++ ) {
+		sender = allUsers[i].fb_id;
+		sendTextMessage(sender, message);
+	}
+
+    res.redirect('broadcast-sent');
+});
+
+app.get('/broadcast-sent', function (req, res) {
+	let newstype = req.session.newstype;
+	let message = req.session.message;
+	let users = req.session.users;
+
+	req.session.newstype = null;
+	req.session.message = null;
+	req.session.users = null;
+    res.render('broadcast-sent', {message: message, users: users, numUsers:users.length, newstype: newstype});
+});
+
+
+// app.get('/logout', function (req, res) {
+//     req.logout();
+//     res.redirect('/');
+// });
+
+
+function ensureAuthenticated(req, res, next) {
+    if (req.isAuthenticated()) {
+    	//if (req.user.id === config.ADMIN_ID ) {
+            return next();
+		//}
+        //res.redirect('/no-access');
+    } else {
+        res.redirect('/');
+    }
+}
+
+
+
+
+
+
 
 // for Facebook verification
 app.get('/webhook/', function (req, res) {
@@ -166,16 +239,18 @@ app.post('/webhook/', function (req, res) {
 	}
 });
 
+
 function setSessionAndUser(senderID) {
 	if (!sessionIds.has(senderID)) {
 		sessionIds.set(senderID, uuid.v1());
 	}
-	//if (!usersMap.has(senderID)) {
+	if (!usersMap.has(senderID)) {
 		userService.addUser(function(user){
 			usersMap.set(senderID, user);
 		}, senderID);
-	//}
+	}
 }
+
 
 
 
@@ -223,6 +298,7 @@ function handleMessageAttachments(messageAttachments, senderID){
 	sendTextMessage(senderID, "Attachment received. Thank you.");	
 }
 
+
 function handleQuickReply(senderID, quickReply, messageId) {
 	var quickReplyPayload = quickReply.payload;
 	switch (quickReplyPayload) {
@@ -230,7 +306,7 @@ function handleQuickReply(senderID, quickReply, messageId) {
 			userService.newsletterSettings(function(updated) {
 				if (updated) {
 					sendTextMessage(senderID, "Thank you for subscribing!" +
-						"If you want to usubscribe just write 'unsubscribe from newsletter'");
+						"We will send you self management tips weekly. If you want to usubscribe just write 'unsubscribe'");
 				} else {
 					sendTextMessage(senderID, "Newsletter is not available at this moment." +
 						"Try again later!");
@@ -241,7 +317,7 @@ function handleQuickReply(senderID, quickReply, messageId) {
 			userService.newsletterSettings(function(updated) {
 				if (updated) {
 					sendTextMessage(senderID, "Thank you for subscribing!" +
-						"If you want to usubscribe just write 'unsubscribe from newsletter'");
+						"We will send you self management tips daily. If you want to usubscribe just write 'unsubscribe'");
 				} else {
 					sendTextMessage(senderID, "Newsletter is not available at this moment." +
 						"Try again later!");
@@ -273,9 +349,9 @@ function handleApiAiAction(sender, action, responseText, contexts, parameters) {
                         "Try again later!");
                 }
             }, 0, sender);
-			break;
+		break;
 
-		case "record-sugar-content":
+		case "blood-sugar":
 		colors.readAllColors(function (allColors) {
                 let allColorsString = allColors.join(', ');
                 let reply = `Normal blood sugar ranges in 80-130. What is your blood sugar?`;
@@ -283,11 +359,12 @@ function handleApiAiAction(sender, action, responseText, contexts, parameters) {
             });
 		break;
 
-		case "record-blood-sugar.stats":
+		case "record_blood.fav":
             colors.updateUserColor(parameters['color'], sender);
             let reply = `Your blood sugar is recorded. Thank you.`;
 			sendTextMessage(sender, reply);
 		break;
+
 
 		default:
 			//unhandled action, just send back the text
@@ -825,9 +902,9 @@ function receivedPostback(event) {
 
 	switch (payload) {
 		case 'GET_STARTED':
-		greetUserText(senderID);
-		break;
-
+			greetUserText(senderID);
+			break;
+		//subscribe
 		case 'FUN_NEWS':
 			sendFunNewsSubscribe(senderID);
 			break;

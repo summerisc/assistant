@@ -1,17 +1,16 @@
 module.exports = {
-    FB_PAGE_TOKEN: 'EAAESezyZAG0gBAAtZC9sTHcB44BtP8H7gvNUXVsBZBVx2F0VW2M11n4qSRUmrJAP5ouf49eYvbZB8ZCQNvnt4KHCcy1vRrZAoOKPh2WDhh636Xt7gSf4tCyUvaYGu5kZBQOHbgq42DhZCpMZBfV8jly0WuWOUj3PsKzAsTdFEhfL4tv4wuo2tNeT1',
+    FB_PAGE_TOKEN: 'EAAFYBAi1RCQBAHizbnFg9usPi7yD4kqJjL47owiG4eQZA5SqYvlmGo9mYvL1ZAQqokH6fNt4wogZCZC9ddgtOV5zMTT20w6gV8aFdJVjdcbdsf3MyqlQyNfuEkLzBwyXVBNCXGGEyOehDbHvlI3a3xPbz2eZCwz8np2dSgY7mFBfhdc4V56Wr',
     FB_VERIFY_TOKEN: '0705175lym',
-    API_AI_CLIENT_ACCESS_TOKEN: '7482b9dbda534b30ab071b543573c436',
-    FB_APP_SECRET: 'aee659d6bc816b9209a9d4322884390a',
+    API_AI_CLIENT_ACCESS_TOKEN: 'e96222d1f6ad402a9abbbb3de5ec28a7',
+    FB_APP_SECRET: '7d930699828af027750dc5e8374019f8',
+    SERVER_URL: "https://health-test-new.herokuapp.com/",
     PG_CONFIG: {
-	user: 'ksyknrjhfrjhmp',
-	database: 'd49u2uiic1dat8',
-	password: '323f57ca7a8eb9f29fe3be51477c6385752552f56fa0a0c5b04ab924b2e97dc6',
-	host: 'ec2-54-163-230-219.compute-1.amazonaws.com',
+	user: 'dklevsonujrhny',
+	database: 'd33gumkbn5s8me',
+	password: 'af456402a97df7294be68486725a7a2370d7e6fafa31a4138f0eb689425891e2',
+	host: 'ec2-23-23-159-84.compute-1.amazonaws.com',
 	port: 5432,
 	max: 10,
 	idleTimeoutMillis: 30000,
 },
-    SERVER_URL: "https://health-test-new.herokuapp.com/",
 };
-

@@ -41,7 +41,7 @@ module.exports = {
             }
             client
                 .query(
-                    'SELECT blood FROM public.user_blood_sugar WHERE fb_id=$1',
+                    'SELECT blood FROM public.user_blood WHERE fb_id=$1',
                     [userId],
                     function(err, result) {
                         if (err) {
@@ -63,7 +63,7 @@ module.exports = {
                 return console.error('Error acquiring client', err.stack);
             }
 
-            let sql1 = `SELECT blood FROM user_blood_sugar WHERE fb_id='${userId}' LIMIT 1`;
+            let sql1 = `SELECT blood FROM user_blood WHERE fb_id='${userId}' LIMIT 1`;
             client
                 .query(sql1,
                     function(err, result) {
@@ -72,9 +72,9 @@ module.exports = {
                         } else {
                             let sql;
                             if (result.rows.length === 0) {
-                                sql = 'INSERT INTO public.user_blood_sugar (blood, fb_id) VALUES ($1, $2)';
+                                sql = 'INSERT INTO public.user_blood (blood, fb_id) VALUES ($1, $2)';
                             } else {
-                                sql = 'UPDATE public.user_blood_sugar SET blood=$1 WHERE fb_id=$2';
+                                sql = 'UPDATE public.user_blood SET blood=$1 WHERE fb_id=$2';
                             }
                             client.query(sql,
                             [
